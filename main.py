@@ -90,9 +90,9 @@ async def class_register(message: types.Message, state: FSMContext):
     connect = sqlite3.connect('database.db')
     cursor = connect.cursor()
     id = f.id_check()
-    task_list_id = 'ts-' + f.if_in_table('task_list_id', 'ts-')
-    hw_list_id = 'hw-' + f.if_in_table('hw_list_id', 'hw-')
-    student_list_id = 'st-' + f.if_in_table('student_list_id', 'st-')
+    task_list_id = 'ts_' + f.if_in_table('task_list_id', 'ts_')
+    hw_list_id = 'hw_' + f.if_in_table('hw_list_id', 'hw_')
+    student_list_id = 'st_' + f.if_in_table('student_list_id', 'st_')
 
     params = (id, class_name, school_name, task_list_id, hw_list_id, student_list_id)
     # print(params)
@@ -104,9 +104,28 @@ async def class_register(message: types.Message, state: FSMContext):
     connect.commit()
     await state.finish()
 
-    f.create_task_table(task_list_id)
-    f.create_homework_table(hw_list_id)
-    f.create_students_table(student_list_id)
+    task_code = '''
+                    CREATE TABLE IF NOT EXISTS {}(
+                    task STRING,
+                    term_date STRING,
+                    term_day STRING
+                    )'''.format(task_list_id)
+    hw_code = '''
+                    CREATE TABLE IF NOT EXISTS {}(
+                    subject, string
+                    task STRING,
+                    term_date STRING,
+                    term_day STRING
+                    )'''.format(hw_list_id)
+    student_code = '''
+                    CREATE TABLE IF NOT EXISTS {}(
+                    full_name STRING,
+                    birthday STRING
+                    )'''.format(student_list_id)
+    # print(task_code)
+    f.create_table(task_code)
+    f.create_table(hw_code)
+    f.create_table(student_code)
 
 
 # def register_handlers_food(dp: Dispatcher):
