@@ -31,40 +31,35 @@ def id_check():
             return x
 
 
-def create_task_table(id):
+def create_table(sql_code):
     connect = sqlite3.connect('database.db')
     cursor = connect.cursor()
 
-    cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS ? (
-                    task STRING,
-                    term_date STRING,
-                    term_day STRING
-                    )''', (id, ))
+    cursor.execute(sql_code)
     connect.commit()
 
 
-def create_homework_table(id):
-    connect = sqlite3.connect('database.db')
-    cursor = connect.cursor()
-
-    cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS ? (
-                    subject, string
-                    task STRING,
-                    term_date STRING,
-                    term_day STRING
-                    )''', (id, ))
-    connect.commit()
-
-
-def create_students_table(id):
-    connect = sqlite3.connect('database.db')
-    cursor = connect.cursor()
-
-    cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS ? (
-                    full_name STRING,
-                    birthday STRING
-                    )''', (id, ))
-    connect.commit()
+# def create_homework_table(id):
+#     connect = sqlite3.connect('database.db')
+#     cursor = connect.cursor()
+#
+#     cursor.execute('''
+#                     CREATE TABLE IF NOT EXISTS ? (
+#                     subject, string
+#                     task STRING,
+#                     term_date STRING,
+#                     term_day STRING
+#                     )''', (id, ))
+#     connect.commit()
+#
+#
+# def create_students_table(id):
+#     connect = sqlite3.connect('database.db')
+#     cursor = connect.cursor()
+#
+#     cursor.execute('''
+#                     CREATE TABLE IF NOT EXISTS ? (
+#                     full_name STRING,
+#                     birthday STRING
+#                     )''', (id, ))
+#     connect.commit()
