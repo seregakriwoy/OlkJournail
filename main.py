@@ -3,7 +3,6 @@ import sqlite3
 # import register
 import functions as f
 import logging
-import random
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
@@ -27,7 +26,7 @@ async def start(message: types.Message):
 
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS users(
-    id INTEGER, 
+    user_id INTEGER, 
     full_name STRING
     )''')
     connect.commit()
@@ -36,11 +35,11 @@ async def start(message: types.Message):
     users_full_name = message.from_user.full_name
 
     cursor.execute(f'''
-    INSERT OR IGNORE INTO users(id, full_name)
+    INSERT OR IGNORE INTO users(user_id, full_name)
     SELECT {user_id}, '{users_full_name}'
     WHERE NOT EXISTS (
     SELECT * FROM users
-    WHERE id = "{user_id}") ''')
+    WHERE user_id = "{user_id}") ''')
     connect.commit()
 
     kb = [
@@ -61,12 +60,13 @@ async def register_table(message: types.Message, state: FSMContext):
 
         cursor.execute('''
                 CREATE TABLE IF NOT EXISTS classes(
-                id INTEGER, 
+                class_id INTEGER, 
                 class_name STRING,
                 school_name STRING,
                 task_list_id STRING,
                 hw_list_id STRING,
-                student_list_id STRING
+                student_list_id STRING,
+                subscribers_list_id STRING
                 )''')
         connect.commit()
 
@@ -93,14 +93,15 @@ async def class_register(message: types.Message, state: FSMContext):
     task_list_id = 'ts_' + f.if_in_table('task_list_id', 'ts_')
     hw_list_id = 'hw_' + f.if_in_table('hw_list_id', 'hw_')
     student_list_id = 'st_' + f.if_in_table('student_list_id', 'st_')
+    subscribers_list_id = 'sb_' + f.if_in_table('subscribers_list_id', 'sb_')
 
-    params = (id, class_name, school_name, task_list_id, hw_list_id, student_list_id)
+    params = (id, class_name, school_name, task_list_id, hw_list_id, student_list_id, subscribers_list_id)
     # print(params)
 
     cursor.execute(f'''INSERT INTO classes
-            (id, class_name, school_name, task_list_id, hw_list_id, student_list_id)
+            (class_id, class_name, school_name, task_list_id, hw_list_id, student_list_id, subscribers_list_id)
             VALUES
-            (?, ?, ?, ?, ?, ?)''', params)
+            (?, ?, ?, ?, ?, ?, ?)''', params)
     connect.commit()
     await state.finish()
 
@@ -112,20 +113,26 @@ async def class_register(message: types.Message, state: FSMContext):
                     )'''.format(task_list_id)
     hw_code = '''
                     CREATE TABLE IF NOT EXISTS {}(
-                    subject, string
+                    subject, STRING
                     task STRING,
                     term_date STRING,
                     term_day STRING
                     )'''.format(hw_list_id)
     student_code = '''
                     CREATE TABLE IF NOT EXISTS {}(
-                    full_name STRING,
+                    surname_name STRING,
                     birthday STRING
                     )'''.format(student_list_id)
+    subscribers_code = '''
+                    CREATE TABLE IF NOT EXISTS {}(
+                    user_id INTEGER,
+                    surname_name STRING
+                    )'''.format(subscribers_list_id)
     # print(task_code)
     f.create_table(task_code)
     f.create_table(hw_code)
     f.create_table(student_code)
+    f.create_table(subscribers_code)
 
 
 # def register_handlers_food(dp: Dispatcher):
