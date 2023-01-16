@@ -19,24 +19,43 @@ class ClassRegister(StatesGroup):
     waiting_for_school_name = State()
 
 
+class UserRegister(StatesGroup):
+    waiting_for_name = State()
+
+
+class JoinClass(StatesGroup):
+    waiting_for_class_id = State()
+
+
+# /start
 @dp.message_handler(commands=['start'])
-async def start(message: types.Message):
+async def start(message: types.Message, state: FSMContext):
     connect = sqlite3.connect('database.db')
     cursor = connect.cursor()
 
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS users(
     user_id INTEGER, 
-    full_name STRING
+    full_name STRING,
+    surname_name STRING
     )''')
     connect.commit()
 
+    await message.answer('Введиет Ваши фамилию и имя')
+    await state.set_state(UserRegister.waiting_for_name.state)
+
+
+@dp.message_handler(state=UserRegister.waiting_for_name)
+async def start_commitment(message: types.message, state: FSMContext):
+    surname_name = message.text
     user_id = message.from_user.id
     users_full_name = message.from_user.full_name
 
+    connect = sqlite3.connect('database.db')
+    cursor = connect.cursor()
     cursor.execute(f'''
-    INSERT OR IGNORE INTO users(user_id, full_name)
-    SELECT {user_id}, '{users_full_name}'
+    INSERT OR IGNORE INTO users(user_id, full_name, surname_name)
+    SELECT {user_id}, '{users_full_name}', '{surname_name}'
     WHERE NOT EXISTS (
     SELECT * FROM users
     WHERE user_id = "{user_id}") ''')
@@ -45,13 +64,16 @@ async def start(message: types.Message):
     kb = [
         [
             types.KeyboardButton(text="Создать профиль класса"),
-            types.KeyboardButton(text="Присоединиться к профилю класса")
+            types.KeyboardButton(text="Присоединиться к профилю класса"),
+            types.KeyboardButton(text="Мои профили классов")
         ]
     ]
     keyboard = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
     await message.reply('Приветствую!', reply_markup=keyboard)
+    await state.finish()
 
 
+# new_class
 @dp.message_handler()
 async def register_table(message: types.Message, state: FSMContext):
     if message.text == 'Создать профиль класса':
@@ -135,10 +157,11 @@ async def class_register(message: types.Message, state: FSMContext):
     f.create_table(subscribers_code)
 
 
-# def register_handlers_food(dp: Dispatcher):
-#     dp.register_message_handler(register_table, state="*")
-#     dp.register_message_handler(get_class_name, state=ClassRegister.waiting_for_class_name)
-#     dp.register_message_handler(class_register, state=ClassRegister.waiting_for_school_name)
+@dp.message_handler()
+async def join_button(message: types.message, state: FSMContext):
+    if message.text == 'Присоединиться к профилю класса':
+        await message.answer('Введиете id класса')
+        await state.set_state(JoinClass.waiting_for_class_id.state)
 
 
 if __name__ == '__main__':
