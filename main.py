@@ -19,39 +19,70 @@ class ClassRegister(StatesGroup):
     waiting_for_school_name = State()
 
 
+class UserRegister(StatesGroup):
+    waiting_for_name = State()
+
+
+class JoinClass(StatesGroup):
+    waiting_for_class_id = State()
+
+
+# /start
 @dp.message_handler(commands=['start'])
-async def start(message: types.Message):
+async def start(message: types.Message, state: FSMContext):
     connect = sqlite3.connect('database.db')
     cursor = connect.cursor()
 
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS users(
     user_id INTEGER, 
-    full_name STRING
+    full_name STRING,
+    surname_name STRING,
+    classes_list_id STRING
     )''')
     connect.commit()
 
+    await message.answer('Введиет Ваши фамилию и имя')
+    await state.set_state(UserRegister.waiting_for_name.state)
+
+
+@dp.message_handler(state=UserRegister.waiting_for_name)
+async def start_commitment(message: types.message, state: FSMContext):
+    surname_name = message.text
     user_id = message.from_user.id
     users_full_name = message.from_user.full_name
+    cl_list_id = 'u_cl_' + f.if_in_table('classes_list_id', 'u/cl', 'users')
+    # print(type(surname_name))
 
+    connect = sqlite3.connect('database.db')
+    cursor = connect.cursor()
     cursor.execute(f'''
-    INSERT OR IGNORE INTO users(user_id, full_name)
-    SELECT {user_id}, '{users_full_name}'
+    INSERT OR IGNORE INTO users(user_id, full_name, surname_name, classes_list_id)
+    SELECT {user_id}, '{users_full_name}', '{surname_name}', '{cl_list_id}'
     WHERE NOT EXISTS (
     SELECT * FROM users
     WHERE user_id = "{user_id}") ''')
     connect.commit()
 
+    class_code = '''CREATE TABLE IF NOT EXISTS {}(
+                    class_id INTEGER
+                    )'''.format(cl_list_id)
+
+    f.create_table(class_code)
+
     kb = [
         [
             types.KeyboardButton(text="Создать профиль класса"),
-            types.KeyboardButton(text="Присоединиться к профилю класса")
+            types.KeyboardButton(text="Присоединиться к профилю класса"),
+            types.KeyboardButton(text="Мои профили классов")
         ]
     ]
     keyboard = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
     await message.reply('Приветствую!', reply_markup=keyboard)
+    await state.finish()
 
 
+# new_class
 @dp.message_handler()
 async def register_table(message: types.Message, state: FSMContext):
     if message.text == 'Создать профиль класса':
@@ -90,10 +121,10 @@ async def class_register(message: types.Message, state: FSMContext):
     connect = sqlite3.connect('database.db')
     cursor = connect.cursor()
     id = f.id_check()
-    task_list_id = 'ts_' + f.if_in_table('task_list_id', 'ts_')
-    hw_list_id = 'hw_' + f.if_in_table('hw_list_id', 'hw_')
-    student_list_id = 'st_' + f.if_in_table('student_list_id', 'st_')
-    subscribers_list_id = 'sb_' + f.if_in_table('subscribers_list_id', 'sb_')
+    task_list_id = 'c_ts_' + f.if_in_table('task_list_id', 'c_ts_', 'classes')
+    hw_list_id = 'c_hw_' + f.if_in_table('hw_list_id', 'c_hw_', 'classes')
+    student_list_id = 'c_st_' + f.if_in_table('student_list_id', 'c_st_', 'classes')
+    subscribers_list_id = 'c_sb_' + f.if_in_table('subscribers_list_id', 'c_sb_', 'classes')
 
     params = (id, class_name, school_name, task_list_id, hw_list_id, student_list_id, subscribers_list_id)
     # print(params)
@@ -126,7 +157,8 @@ async def class_register(message: types.Message, state: FSMContext):
     subscribers_code = '''
                     CREATE TABLE IF NOT EXISTS {}(
                     user_id INTEGER,
-                    surname_name STRING
+                    surname_name STRING,
+                    is_admin BOOLEAN
                     )'''.format(subscribers_list_id)
     # print(task_code)
     f.create_table(task_code)
@@ -134,11 +166,28 @@ async def class_register(message: types.Message, state: FSMContext):
     f.create_table(student_code)
     f.create_table(subscribers_code)
 
+    user_id = message.from_user.id
+    user_surname_name = cursor.execute(f'''SELECT surname_name FROM users WHERE user_id = "{user_id}"''').fetchone()[0]
+    user_classes = cursor.execute(f'''SELECT classes_list_id FROM users WHERE user_id = "{user_id}"''').fetchone()[0]
+    # print(type(user_classes))
+    # print(type(user_surname_name))
 
-# def register_handlers_food(dp: Dispatcher):
-#     dp.register_message_handler(register_table, state="*")
-#     dp.register_message_handler(get_class_name, state=ClassRegister.waiting_for_class_name)
-#     dp.register_message_handler(class_register, state=ClassRegister.waiting_for_school_name)
+    cursor.execute(f'''INSERT INTO '{subscribers_list_id}' 
+    (user_id, surname_name, is_admin)
+    VALUES ({user_id}, '{user_surname_name}', {True})''')
+    connect.commit()
+
+    cursor.execute('''INSERT INTO {} 
+    (class_id)
+    VALUES ({})'''.format(user_classes, id))
+    connect.commit()
+
+
+@dp.message_handler()
+async def join_button(message: types.message, state: FSMContext):
+    if message.text == 'Присоединиться к профилю класса':
+        await message.answer('Введите id класса')
+        await state.set_state(JoinClass.waiting_for_class_id.state)
 
 
 if __name__ == '__main__':
