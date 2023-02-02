@@ -134,7 +134,6 @@ async def class_register(message: types.Message, state: FSMContext):
             VALUES
             (?, ?, ?, ?, ?, ?, ?)''', params)
     connect.commit()
-    await state.finish()
 
     task_code = '''
                     CREATE TABLE IF NOT EXISTS {}(
@@ -182,12 +181,47 @@ async def class_register(message: types.Message, state: FSMContext):
     VALUES ({})'''.format(user_classes, id))
     connect.commit()
 
+    await message.answer("Профиль класса успешно создан")
+    await state.finish()
 
+
+# class_join
 @dp.message_handler()
-async def join_button(message: types.message, state: FSMContext):
+async def join_button(message: types.Message, state: FSMContext):
+    print('wwd')
     if message.text == 'Присоединиться к профилю класса':
+        print('fwwa')
         await message.answer('Введите id класса')
         await state.set_state(JoinClass.waiting_for_class_id.state)
+
+
+@dp.message_handler(state=JoinClass.waiting_for_class_id.state)
+async def join_class(message: types.Message, state: FSMContext):
+    connect = sqlite3.connect('database.db')
+    cursor = connect.cursor()
+    class_id = message.text
+    user_id = message.from_user.id
+    user_class_list = cursor.execute(f'''SELECT classes_list_id FROM users WHERE user_id = {user_id}''').fetchone()[0]
+    surname_name = cursor.execute(f'''SELECT surname_name FROM users WHERE user_id = {user_id}''').fetchone()[0]
+    subscribers_list = cursor.execute(
+        f'''SELECT subscribers_list_id FROM classes WHERE class_id = {class_id}''').fetchone()[0]
+
+    if cursor.execute(f'''SELECT class_id FROM classes WHERE class_id = {class_id}''').fetchone() == None:
+        await message.answer("Неправильный id класса, повторите попытку")
+        await state.finish()
+    elif cursor.execute(f'''SELECT class_id FROM {user_class_list} WHERE class_id = {class_id}''').fetchone() != None:
+        await message.answer("Вы уже подписаны на этот класс")
+        await state.finish()
+    else:
+        cursor.execute(f'''INSERT INTO {subscribers_list}
+        (user_id, surname_name, is_admin)
+        VALUES ({user_id}, '{surname_name}', {False})''')
+        connect.commit()
+        cursor.execute(f'''INSERT INTO {user_class_list}
+        (class_id) VALUES ({class_id})''')
+        connect.commit()
+        await message.answer("Вы успешно подписались на профиль класса")
+        await state.finish()
 
 
 if __name__ == '__main__':
