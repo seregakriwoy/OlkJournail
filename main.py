@@ -27,6 +27,33 @@ class JoinClass(StatesGroup):
     waiting_for_class_id = State()
 
 
+# universal message handler
+@dp.message_handler()
+async def message_dp(message: types.Message, state: FSMContext):
+    if message.text == 'Создать профиль класса':
+        connect = sqlite3.connect('database.db')
+        cursor = connect.cursor()
+
+        cursor.execute('''
+                CREATE TABLE IF NOT EXISTS classes(
+                class_id INTEGER, 
+                class_name STRING,
+                school_name STRING,
+                task_list_id STRING,
+                hw_list_id STRING,
+                student_list_id STRING,
+                subscribers_list_id STRING
+                )''')
+        connect.commit()
+
+        await message.answer('Введите название класса')
+        await state.set_state(ClassRegister.waiting_for_class_name.state)
+
+    if message.text == 'Присоединиться к профилю класса':
+        await message.answer('Введите id класса')
+        await state.set_state(JoinClass.waiting_for_class_id.state)
+
+
 # /start
 @dp.message_handler(commands=['start'])
 async def start(message: types.Message, state: FSMContext):
@@ -82,29 +109,7 @@ async def start_commitment(message: types.message, state: FSMContext):
     await state.finish()
 
 
-# new_class
-@dp.message_handler()
-async def register_table(message: types.Message, state: FSMContext):
-    if message.text == 'Создать профиль класса':
-        connect = sqlite3.connect('database.db')
-        cursor = connect.cursor()
-
-        cursor.execute('''
-                CREATE TABLE IF NOT EXISTS classes(
-                class_id INTEGER, 
-                class_name STRING,
-                school_name STRING,
-                task_list_id STRING,
-                hw_list_id STRING,
-                student_list_id STRING,
-                subscribers_list_id STRING
-                )''')
-        connect.commit()
-
-        await message.answer('Введите название класса')
-        await state.set_state(ClassRegister.waiting_for_class_name.state)
-
-
+# new class
 @dp.message_handler(state=ClassRegister.waiting_for_class_name)
 async def get_class_name(message: types.Message, state: FSMContext):
     await state.update_data(class_n=message.text)
@@ -185,16 +190,7 @@ async def class_register(message: types.Message, state: FSMContext):
     await state.finish()
 
 
-# class_join
-@dp.message_handler()
-async def join_button(message: types.Message, state: FSMContext):
-    print('wwd')
-    if message.text == 'Присоединиться к профилю класса':
-        print('fwwa')
-        await message.answer('Введите id класса')
-        await state.set_state(JoinClass.waiting_for_class_id.state)
-
-
+# class join
 @dp.message_handler(state=JoinClass.waiting_for_class_id.state)
 async def join_class(message: types.Message, state: FSMContext):
     connect = sqlite3.connect('database.db')
@@ -203,8 +199,6 @@ async def join_class(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     user_class_list = cursor.execute(f'''SELECT classes_list_id FROM users WHERE user_id = {user_id}''').fetchone()[0]
     surname_name = cursor.execute(f'''SELECT surname_name FROM users WHERE user_id = {user_id}''').fetchone()[0]
-    subscribers_list = cursor.execute(
-        f'''SELECT subscribers_list_id FROM classes WHERE class_id = {class_id}''').fetchone()[0]
 
     if cursor.execute(f'''SELECT class_id FROM classes WHERE class_id = {class_id}''').fetchone() == None:
         await message.answer("Неправильный id класса, повторите попытку")
@@ -213,6 +207,9 @@ async def join_class(message: types.Message, state: FSMContext):
         await message.answer("Вы уже подписаны на этот класс")
         await state.finish()
     else:
+        subscribers_list = cursor.execute(
+            f'''SELECT subscribers_list_id FROM classes WHERE class_id = {class_id}''').fetchone()[0]
+
         cursor.execute(f'''INSERT INTO {subscribers_list}
         (user_id, surname_name, is_admin)
         VALUES ({user_id}, '{surname_name}', {False})''')
