@@ -27,13 +27,16 @@ class JoinClass(StatesGroup):
     waiting_for_class_id = State()
 
 
+class ClassList(StatesGroup):
+    waiting_for_class_number = State()
+
+
 # universal message handler
 @dp.message_handler()
 async def message_dp(message: types.Message, state: FSMContext):
+    connect = sqlite3.connect('database.db')
+    cursor = connect.cursor()
     if message.text == 'Создать профиль класса':
-        connect = sqlite3.connect('database.db')
-        cursor = connect.cursor()
-
         cursor.execute('''
                 CREATE TABLE IF NOT EXISTS classes(
                 class_id INTEGER, 
@@ -52,6 +55,26 @@ async def message_dp(message: types.Message, state: FSMContext):
     if message.text == 'Присоединиться к профилю класса':
         await message.answer('Введите id класса')
         await state.set_state(JoinClass.waiting_for_class_id.state)
+
+    if message.text == 'Мои профили классов':
+        user_id = message.from_user.id
+        user_classes = cursor.execute(f'''SELECT classes_list_id FROM users WHERE user_id = {user_id}''').fetchone()[0]
+        user_profiles = cursor.execute(f'''SELECT class_id FROM {user_classes} ''').fetchall()
+        print(user_profiles)
+        if user_profiles == None:
+            await message.answer("Здесь пока ничего нет :)")
+        else:
+            lst = []
+            for i in range(len(user_profiles)):
+                for k in user_profiles[i]:
+                    class_name = cursor.execute(f'''SELECT class_name FROM classes WHERE class_id = {k}''').fetchone()[
+                        0]
+                    school_name = \
+                    cursor.execute(f'''SELECT school_name FROM classes WHERE class_id = {k}''').fetchone()[0]
+                    lst.append(f'{i + 1}: класс "{class_name}" школы "{school_name}"')
+            await message.answer('\n'.join(lst))
+            await message.answer("Введите порядковый номер профиля")
+            await state.set_state(ClassList.waiting_for_class_number.state)
 
 
 # /start
@@ -220,6 +243,9 @@ async def join_class(message: types.Message, state: FSMContext):
         await message.answer("Вы успешно подписались на профиль класса")
         await state.finish()
 
+
+# @dp.message_handler(state=ClassList.waiting_for_class_number.state):
+#     async def 
 
 if __name__ == '__main__':
     # register.setup(dp)
