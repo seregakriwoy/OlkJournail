@@ -68,8 +68,23 @@ async def message_dp(message: types.Message, state: FSMContext):
             )''')
         connect.commit()
 
-        await message.answer('Введиет Ваши фамилию и имя')
-        await state.set_state(UserRegister.waiting_for_name.state)
+        user_id = message.from_user.id
+        if not cursor.execute(f'''SELECT user_id FROM users WHERE user_id = {user_id}''').fetchall():
+            await message.answer('Введиет Ваши фамилию и имя')
+            await state.set_state(UserRegister.waiting_for_name.state)
+
+        else:
+
+            kb = [
+                [
+                    types.KeyboardButton(text="Создать профиль класса"),
+                    types.KeyboardButton(text="Присоединиться к профилю класса"),
+                    types.KeyboardButton(text="Мои профили классов")
+                ]
+            ]
+            keyboard = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+            await message.answer('Аккаунт уже создан', reply_markup=keyboard)
+            await state.finish()
 
     if message.text == 'Создать профиль класса':
         cursor.execute('''
@@ -120,24 +135,21 @@ async def message_dp(message: types.Message, state: FSMContext):
 async def start_commitment(message: types.message, state: FSMContext):
     surname_name = message.text
     user_id = message.from_user.id
-    if not cursor.execute(f'''SELECT user_id FROM users WHERE user_id = {user_id}'''):
-        users_full_name = message.from_user.full_name
-        cl_list_id = 'u_cl_' + f.if_in_table('classes_list_id', 'u/cl', 'users')
-        # print(type(surname_name))
+    users_full_name = message.from_user.full_name
+    cl_list_id = 'u_cl_' + f.if_in_table('classes_list_id', 'u/cl', 'users')
+    cursor.execute(f'''
+    INSERT OR IGNORE INTO users(user_id, full_name, surname_name, classes_list_id)
+    SELECT {user_id}, '{users_full_name}', '{surname_name}', '{cl_list_id}'
+    WHERE NOT EXISTS (
+    SELECT * FROM users
+    WHERE user_id = "{user_id}") ''')
+    connect.commit()
 
-        cursor.execute(f'''
-        INSERT OR IGNORE INTO users(user_id, full_name, surname_name, classes_list_id)
-        SELECT {user_id}, '{users_full_name}', '{surname_name}', '{cl_list_id}'
-        WHERE NOT EXISTS (
-        SELECT * FROM users
-        WHERE user_id = "{user_id}") ''')
-        connect.commit()
+    class_code = '''CREATE TABLE IF NOT EXISTS {}(
+                    class_id INTEGER
+                    )'''.format(cl_list_id)
 
-        class_code = '''CREATE TABLE IF NOT EXISTS {}(
-                        class_id INTEGER
-                        )'''.format(cl_list_id)
-
-        f.create_table(class_code)
+    f.create_table(class_code)
 
     kb = [
         [
@@ -227,6 +239,7 @@ async def class_register(message: types.Message, state: FSMContext):
     connect.commit()
 
     await message.answer("Профиль класса успешно создан")
+    await message.answer(f"Id профиля класса: {id}")
     await state.finish()
 
 
