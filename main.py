@@ -159,7 +159,7 @@ async def start_commitment(message: types.message, state: FSMContext):
         ]
     ]
     keyboard = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-    await message.reply('Приветствую!', reply_markup=keyboard)
+    await message.answer('Приветствую!', reply_markup=keyboard)
     await state.finish()
 
 
@@ -251,25 +251,29 @@ async def join_class(message: types.Message, state: FSMContext):
     user_class_list = cursor.execute(f'''SELECT classes_list_id FROM users WHERE user_id = {user_id}''').fetchone()[0]
     surname_name = cursor.execute(f'''SELECT surname_name FROM users WHERE user_id = {user_id}''').fetchone()[0]
 
-    if cursor.execute(f'''SELECT class_id FROM classes WHERE class_id = {class_id}''').fetchone() == None:
+    if not isinstance(class_id, int):
         await message.answer("Неправильный id класса, повторите попытку")
         await state.finish()
-    elif cursor.execute(f'''SELECT class_id FROM {user_class_list} WHERE class_id = {class_id}''').fetchone() != None:
-        await message.answer("Вы уже подписаны на этот класс")
-        await state.finish()
     else:
-        subscribers_list = cursor.execute(
-            f'''SELECT subscribers_list_id FROM classes WHERE class_id = {class_id}''').fetchone()[0]
+        if cursor.execute(f'''SELECT class_id FROM classes WHERE class_id = {class_id}''').fetchone() == None:
+            await message.answer("Неправильный id класса, повторите попытку")
+            await state.finish()
+        elif cursor.execute(f'''SELECT class_id FROM {user_class_list} WHERE class_id = {class_id}''').fetchone() != None:
+            await message.answer("Вы уже подписаны на этот класс")
+            await state.finish()
+        else:
+            subscribers_list = cursor.execute(
+                f'''SELECT subscribers_list_id FROM classes WHERE class_id = {class_id}''').fetchone()[0]
 
-        cursor.execute(f'''INSERT INTO {subscribers_list}
-        (user_id, surname_name, is_admin)
-        VALUES ({user_id}, '{surname_name}', {False})''')
-        connect.commit()
-        cursor.execute(f'''INSERT INTO {user_class_list}
-        (class_id) VALUES ({class_id})''')
-        connect.commit()
-        await message.answer("Вы успешно подписались на профиль класса")
-        await state.finish()
+            cursor.execute(f'''INSERT INTO {subscribers_list}
+            (user_id, surname_name, is_admin)
+            VALUES ({user_id}, '{surname_name}', {False})''')
+            connect.commit()
+            cursor.execute(f'''INSERT INTO {user_class_list}
+            (class_id) VALUES ({class_id})''')
+            connect.commit()
+            await message.answer("Вы успешно подписались на профиль класса")
+            await state.finish()
 
 
 @dp.message_handler(state=ClassActions.waiting_for_class_number.state)
